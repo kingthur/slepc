@@ -1,0 +1,64 @@
+#
+#  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  SLEPc - Scalable Library for Eigenvalue Problem Computations
+#  Copyright (c) 2002-2016, Universitat Politecnica de Valencia, Spain
+#
+#  This file is part of SLEPc.
+#
+#  SLEPc is free software: you can redistribute it and/or modify it under  the
+#  terms of version 3 of the GNU Lesser General Public License as published by
+#  the Free Software Foundation.
+#
+#  SLEPc  is  distributed in the hope that it will be useful, but WITHOUT  ANY
+#  WARRANTY;  without even the implied warranty of MERCHANTABILITY or  FITNESS
+#  FOR  A  PARTICULAR PURPOSE. See the GNU Lesser General Public  License  for
+#  more details.
+#
+#  You  should have received a copy of the GNU Lesser General  Public  License
+#  along with SLEPc. If not, see <http://www.gnu.org/licenses/>.
+#  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#
+
+include ${PETSC_DIR}/lib/petsc/conf/test
+
+SETTEST = \
+        test=$(subst run,,$@); check=$${test}; \
+        ([ x${ALLTESTS_PRINT_PROGRESS} = xtest ] && printf "%27s in $(subst ${SLEPC_DIR},SLEPC_DIR,${PWD})\n" $${test})
+
+TESTCODE = \
+        [ x${SAVE_OUTPUT} = xyes ] && cp $${test}.tmp output/$${check}.out; \
+        ${DIFF} output/$${check}.out $${test}.tmp || \
+        echo "Possible problem with $${test}, diffs above"; \
+        ${RM} $${test}.tmp
+
+TESTCODE_CUDA = \
+        [ x${SAVE_OUTPUT} = xyes ] && cp $${test}.tmp output/$${check}.out; \
+        ${SED} 's/type: seqcuda/type: seq/' $${test}.tmp | ${DIFF} - output/$${check}.out || \
+        echo "Possible problem with $${test}, diffs above"; \
+        ${RM} $${test}.tmp
+
+testexamples_C_Double: ${TESTEXAMPLES_C_DOUBLE}
+testexamples_C_DataFile: ${TESTEXAMPLES_C_DATAFILE}
+testexamples_DATAFILESPATH_Complex: ${TESTEXAMPLES_DATAFILESPATH_COMPLEX}
+testexamples_ARPACK: ${TESTEXAMPLES_ARPACK}
+testexamples_BLOPEX: ${TESTEXAMPLES_BLOPEX}
+testexamples_BLZPACK: ${TESTEXAMPLES_BLZPACK}
+testexamples_FEAST: ${TESTEXAMPLES_FEAST}
+testexamples_PRIMME: ${TESTEXAMPLES_PRIMME}
+testexamples_TRLAN: ${TESTEXAMPLES_TRLAN}
+
+slepc_alltests:
+	-@${RM} -f ${PETSC_ARCH}/lib/slepc/conf/alltests.log alltests.log
+	@if [ x${PETSC_ARCH} != x -a -d "${PETSC_ARCH}" ]; then \
+            ln -s ${PETSC_ARCH}/lib/slepc/conf/alltests.log alltests.log; \
+            ALLTESTSLOG=${PETSC_ARCH}/lib/slepc/conf/alltests.log; \
+          else \
+            ALLTESTSLOG=alltests.log; \
+          fi; \
+          ${OMAKE} alltest PETSC_ARCH=${PETSC_ARCH} PETSC_DIR=${PETSC_DIR} SLEPC_DIR=${SLEPC_DIR} MPIEXEC="${MPIEXEC}" DATAFILESPATH=${DATAFILESPATH} 2>&1 | tee $${ALLTESTSLOG}; \
+          if [ x${ALLTESTS_CHECK_FAILURES} = xyes ]; then \
+            cat $${ALLTESTSLOG} | ${SED} -e '1d' -e '$$d' | \
+            ${GREP} -v '^[\*]\{7,7\} Testing: ${TESTMODE}_[a-zA-Z0-9_]* [\*]\{7,7\}$$' | \
+            ${GREP} -v '^[\.]*$$' | wc -l | ${GREP} '^[ ]*0$$' > /dev/null; \
+        fi;
+
